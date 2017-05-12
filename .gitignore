@@ -1,0 +1,23 @@
+Improved_Predictions/**/*
+.idea/**/*
+
+*~*.*
+*.tmp
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Scrapy stuff:
+.scrapy
+
+# IPython Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
