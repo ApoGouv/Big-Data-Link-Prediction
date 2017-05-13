@@ -20,6 +20,8 @@ from sklearn import svm
 # http://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html
 from sklearn.feature_extraction.text import TfidfVectorizer
 
+from sklearn.metrics.pairwise import cosine_similarity
+
 # linear_kernel: Compute the linear kernel between X and Y.
 # http://scikit-learn.org/stable/modules/generated/sklearn.metrics.pairwise.linear_kernel.html
 from sklearn.metrics.pairwise import linear_kernel
@@ -32,6 +34,18 @@ from sklearn import preprocessing
 # RandomForestClassifier: A random forest classifier.
 # http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html
 from sklearn.ensemble import RandomForestClassifier as RF
+from sklearn.ensemble import AdaBoostClassifier as RF_Boost
+from sklearn.neighbors import KNeighborsClassifier as KNN
+from sklearn.naive_bayes import GaussianNB as GNB
+from sklearn.gaussian_process import GaussianProcessClassifier as GPC
+from sklearn.svm import SVC
+from sklearn.gaussian_process.kernels import RBF
+
+# from matplotlib.colors import ListedColormap
+# from sklearn.model_selection import train_test_split
+# from sklearn.preprocessing import StandardScaler
+# from sklearn.datasets import make_moons, make_circles, make_classification
+# from sklearn.neural_network import MLPClassifier
 
 nltk.download('punkt')  # for tokenization
 nltk.download('stopwords')
@@ -199,6 +213,8 @@ comm_auth = []
 comm_journ = []
 # feature #5: number of common abstract words
 comm_abstr = []
+# feature #6: cosine similarity
+cos_sim = []
 
 counter = 0
 # For each row in the training_set_reduced calculate the 3 features
@@ -251,15 +267,14 @@ for i in xrange(len(training_set_reduced)):
 
     # Calculate feature #2 - temporal distance (time) between the papers
     temp_diff.append(int(source_info[1]) - int(target_info[1]))
-
     # Calculate feature #3 - number of common authors
     comm_auth.append(len(set(source_auth).intersection(set(target_auth))))
-
     # Calculate feature #4 - number of common words in journal
     comm_journ.append(len(set(source_journal).intersection(set(target_journal))))
-
     # Calculate feature #5 - number of common abstract words
     comm_abstr.append(len(set(source_abstr).intersection(set(target_abstr))))
+    # Calculate feature #6 - cosine similarity
+    cos_sim.append(cosine_similarity(features_TFIDF[index_source], features_TFIDF[index_target]))
 
     counter += 1
     if counter % 10000 == True:
@@ -272,7 +287,7 @@ print " /!\ Total: ", counter, " training examples processed!"
 
 # convert list of lists into array
 # documents as rows, unique words as columns (i.e., example as rows, features as columns)
-training_features = np.array([overlap_title, temp_diff, comm_auth, comm_journ, comm_abstr]).astype(np.float64).T
+training_features = np.array([overlap_title, temp_diff, comm_auth, comm_journ, comm_abstr, cos_sim]).astype(np.float64).T
 
 # scale our features
 # Why apply scale?
@@ -296,7 +311,26 @@ print "     ", labels_array
 # initialize basic SVM
 # classifier = svm.LinearSVC() # SVM used in initial baseline script
 # Create a random forest classifier. (By convention, clf means 'classifier')
+# TRY --> max_depth=5, n_estimators=10, max_features=1
 classifier = RF(n_jobs=1, n_estimators=200, max_features=5, max_depth=10, min_samples_leaf=100)
+
+
+# TO-TEST #
+# RF_Boost
+# classifier = RF_Boost()
+# KNN
+# classifier = KNN(3)
+# GNB
+# classifier = GNB()
+# SVC
+# classifier = SVC(kernel="linear", C=0.025)
+# classifier = SVC(gamma=2, C=1)
+# RBF
+# classifier = RBF(1.0)
+# GPC
+# classifier = GPC(1.0 * RBF(1.0), warm_start=True)
+# ####### #
+
 
 # Train the classifier to take the training features and learn how they relate
 # to the training labels_array (the edges)
@@ -312,6 +346,7 @@ temp_diff_test = []
 comm_auth_test = []
 comm_journ_test = []
 comm_abstr_test = []
+cos_sim_test = []
 
 counter = 0
 # For each row in the testing_set calculate the 3 features
@@ -375,6 +410,9 @@ for i in xrange(len(testing_set)):
     comm_journ_test.append(len(set(source_journal).intersection(set(target_journal))))
     # Calculate feature #5 - number of common abstract words
     comm_abstr_test.append(len(set(source_abstr).intersection(set(target_abstr))))
+    # Calculate feature #6 - cosine similarity
+    cos_sim_test.append(cosine_similarity(features_TFIDF[index_source], features_TFIDF[index_target]))
+
 
     counter += 1
     if counter % 10000 == True:
@@ -387,7 +425,7 @@ print " /!\ Total: ", counter, " testing examples processed!"
 
 # convert list of lists into array
 # documents as rows, unique words as columns (i.e., example as rows, features as columns)
-testing_features = np.array([overlap_title_test, temp_diff_test, comm_auth_test, comm_journ_test, comm_abstr_test]).astype(np.float64).T
+testing_features = np.array([overlap_title_test, temp_diff_test, comm_auth_test, comm_journ_test, comm_abstr_test, cos_sim_test]).astype(np.float64).T
 
 # scale our features
 testing_features_scaled = preprocessing.scale(testing_features)
