@@ -1,5 +1,7 @@
 import random
 
+# we will use this to get the time when we run the script, in order to have an indication of time lapse since run
+from datetime import datetime
 
 import csv
 
@@ -8,6 +10,11 @@ import numpy as np
 
 # Natural Language Toolkit: Natural Language Processing package | http://www.nltk.org/
 import nltk
+
+# iGraph is for making graphs
+import igraph
+# is used for graphics. maybe needed for showing the graph ??
+import cairo
 
 # sklearn: Machine learning package | http://scikit-learn.org/ #
 
@@ -52,7 +59,6 @@ nltk.download('stopwords')
 stpwds = set(nltk.corpus.stopwords.words("english"))
 stemmer = nltk.stem.PorterStemmer()
 
-
 with open("input/testing_set.txt", "r") as f:
     reader = csv.reader(f)
     testing_set = list(reader)
@@ -84,7 +90,6 @@ with open("input/random_predictions.csv", "r") as rand_pred_file:
     print "****", "['id', 'category']"
     for i in range(5):
         print "     ", csv_read.next()
-
 
 #
 # note: Kaggle requires that you add "ID" and "category" column headers
@@ -131,10 +136,10 @@ with open("input/training_set.txt", "r") as f:
 #       ['9701033', '209076', '0']
 #
 training_set = [element[0].split(" ") for element in training_set]
+#                  [0]         [1]      [2]
 print "**** ", "['src_ID',  'trg_ID', 'edge']"
 for i in range(5):
     print "     ", training_set[i]
-
 
 with open("input/node_information.csv", "r") as f:
     reader = csv.reader(f)
@@ -155,7 +160,7 @@ corpus = [element[5] for element in node_info]  # this holds a vertical list of 
 # min_df=0:
 # ngram_range=(1,3): generate 2 and 3 word phrases along with the single words from the corpus
 # analyzer='word':
-vectorizer = TfidfVectorizer(analyzer='word', ngram_range=(1,3), min_df=0, stop_words="english")
+vectorizer = TfidfVectorizer(analyzer='word', ngram_range=(1, 3), min_df=0, stop_words="english")
 
 # each row is a node in the order of node_info
 # fit_transform(): Learn vocabulary and idf, return term-document matrix.
@@ -163,29 +168,36 @@ features_TFIDF = vectorizer.fit_transform(corpus)
 # print type(features_TFIDF) | will print <class 'scipy.sparse.csr.csr_matrix'>
 # https://docs.scipy.org/doc/scipy-0.19.0/reference/generated/scipy.sparse.csr_matrix.html
 
-## the following shows how to construct a graph with igraph
-## even though in this baseline we don't use it
-## look at http://igraph.org/python/doc/igraph.Graph-class.html for feature ideas
+# the following shows how to construct a graph with igraph
+# even though in this baseline we don't use it
+# look at http://igraph.org/python/doc/igraph.Graph-class.html for feature ideas
 
-# edges = [(element[0],element[1]) for element in training_set if element[2]=="1"]
+edges = [(element[0], element[1]) for element in training_set if element[2] == "1"]
 
-## some nodes may not be connected to any other node
-## hence the need to create the nodes of the graph from node_info.csv,
-## not just from the edge list
+# some nodes may not be connected to any other node
+# hence the need to create the nodes of the graph from node_info.csv,
+# not just from the edge list
 
-# nodes = IDs
+nodes = IDs
 
-## create empty directed graph
-# g = igraph.Graph(directed=True)
+# create empty directed graph
+g = igraph.Graph(directed=True)
 
-## add vertices
-# g.add_vertices(nodes)
+# add vertices
+g.add_vertices(nodes)
 
-## add edges
-# g.add_edges(edges)
+# add edges
+g.add_edges(edges)
 
+# print g
 
+# an adjacency list is a collection of unordered lists used to represent a finite graph.
+# Each list describes the set of neighbors of a vertex in the graph from wikipedia.
+# So we get the adjacency list of the graph and convert each item in the adjacency list to a set.
+gAdjList = [set(x) for x in g.get_adjlist(mode="ALL")]
 
+# preferential attachment | we pre-calculate here the degrees array
+degrees = g.degree()
 
 # for each training example we need to compute features
 # in this baseline we will train the model on only 5% of the training set
@@ -215,8 +227,18 @@ comm_journ = []
 comm_abstr = []
 # feature #6: cosine similarity
 cos_sim = []
+# feature #7: common neighbours
+com_neigh = []
+# feature #8: preferential attachment
+pref_attach = []
+# feature #?: shortest distance
+# see paper: Link prediction using supervised learning @p.4 | 3.Topological Featutes: Shortest Distance
+# shortest_path = []
+# feature #?: Calculates the Google PageRank values of a graph.
+# g.pagerank(g, vertices=None, directed=True, damping=0.85, weights=None, arpack_options=None, implementation='prpack', niter=1000, eps=0.001)
 
 counter = 0
+time = datetime.now().strftime('%H:%M:%S')
 # For each row in the training_set_reduced calculate the 3 features
 for i in xrange(len(training_set_reduced)):
 
@@ -253,18 +275,16 @@ for i in xrange(len(training_set_reduced)):
     target_abstr = [token for token in target_abstr if token not in stpwds]  # remove stopwords
     target_abstr = [stemmer.stem(token) for token in target_abstr]  # perform stemming
 
-
     # 4: Manipulate source & target authors
     source_auth = source_info[3].split(",")
     target_auth = target_info[3].split(",")
 
-    # 4: Manipulate source & target journal
+    # 5: Manipulate source & target journal
     source_journal = source_info[4]
     target_journal = target_info[4]
 
     # Calculate feature #1 - number of overlapping words in title
     overlap_title.append(len(set(source_title).intersection(set(target_title))))
-
     # Calculate feature #2 - temporal distance (time) between the papers
     temp_diff.append(int(source_info[1]) - int(target_info[1]))
     # Calculate feature #3 - number of common authors
@@ -275,19 +295,32 @@ for i in xrange(len(training_set_reduced)):
     comm_abstr.append(len(set(source_abstr).intersection(set(target_abstr))))
     # Calculate feature #6 - cosine similarity
     cos_sim.append(cosine_similarity(features_TFIDF[index_source], features_TFIDF[index_target]))
+    # Calculate feature #7: common neighbours
+    com_neigh.append(len(gAdjList[index_source].intersection(gAdjList[index_target])))
+    # Calculate feature #8: preferential attachment
+    pref_attach.append(int(degrees[index_source] * degrees[index_target]))
+    # Calculate feature #? - shortest path
+    # cg.get_shortest_paths(v=index_source, to=index_target, weights=None, mode=1, output= )
+    # shortest_path.append(
+    #   len(g.shortest_paths_dijkstra(source=index_source, target=index_target, weights=None, mode=1)))
+
 
     counter += 1
     if counter % 10000 == True:
-        print counter, " training examples processed"
+        time = datetime.now().strftime('%H:%M:%S')
+        print counter, " training examples processed, @: " , time
     if counter % 1000 == True:
         print ".",
 
+time = datetime.now().strftime('%H:%M:%S')
 print " "
-print " /!\ Total: ", counter, " training examples processed!"
+print " /!\ Total: ", counter, " training examples processed! @: ", time
 
 # convert list of lists into array
 # documents as rows, unique words as columns (i.e., example as rows, features as columns)
-training_features = np.array([overlap_title, temp_diff, comm_auth, comm_journ, comm_abstr, cos_sim]).astype(np.float64).T
+training_features = np.array(
+    [overlap_title, temp_diff, comm_auth, comm_journ, comm_abstr, cos_sim, com_neigh, pref_attach]).astype(
+    np.float64).T
 
 # scale our features
 # Why apply scale?
@@ -298,7 +331,7 @@ training_features = np.array([overlap_title, temp_diff, comm_auth, comm_journ, c
 training_features_scaled = preprocessing.scale(training_features)
 print "training_features" + "          " + "training_features_scaled"
 for i in range(5):
-    print training_features[i], "         ",  training_features_scaled[i]
+    print training_features[i], "         ", training_features_scaled[i]
 
 # convert labels into integers then into column array
 # labels: are what I call previously "edge", which says if a link between 2 papers exist (1) or not (0)
@@ -311,9 +344,10 @@ print "     ", labels_array
 # initialize basic SVM
 # classifier = svm.LinearSVC() # SVM used in initial baseline script
 # Create a random forest classifier. (By convention, clf means 'classifier')
-# TRY --> max_depth=5, n_estimators=10, max_features=1
-classifier = RF(n_jobs=1, n_estimators=200, max_features=5, max_depth=10, min_samples_leaf=100)
 
+# https://github.com/echen/link-prediction/blob/master/predict_links.py :
+# n_estimators = 500, compute_importances = True, oob_score = True
+classifier = RF(n_jobs=1, n_estimators=500, criterion="entropy", max_features="log2", max_depth=10)
 
 # TO-TEST #
 # RF_Boost
@@ -347,6 +381,9 @@ comm_auth_test = []
 comm_journ_test = []
 comm_abstr_test = []
 cos_sim_test = []
+com_neigh_test = []
+pref_attach_test = []
+# shortest_path_test = []
 
 counter = 0
 # For each row in the testing_set calculate the 3 features
@@ -412,27 +449,39 @@ for i in xrange(len(testing_set)):
     comm_abstr_test.append(len(set(source_abstr).intersection(set(target_abstr))))
     # Calculate feature #6 - cosine similarity
     cos_sim_test.append(cosine_similarity(features_TFIDF[index_source], features_TFIDF[index_target]))
-
+    # Calculate feature #7: common neighbours
+    com_neigh_test.append(len(gAdjList[index_source].intersection(gAdjList[index_target])))
+    # Calculate feature #8: preferential attachment
+    pref_attach_test.append(int(degrees[index_source] * degrees[index_target]))
+    # Calculate feature #? - shortest path
+    # shortest_path_test.append(
+    #   len(g.shortest_paths_dijkstra(source=index_source, target=index_target, weights=None, mode=1)))
 
     counter += 1
     if counter % 10000 == True:
-        print counter, " testing examples processed"
+        time = datetime.now().strftime('%H:%M:%S')
+        print counter, " testing examples processed, @: " , time
     if counter % 1000 == True:
         print ".",
 
+time = datetime.now().strftime('%H:%M:%S')
 print " "
-print " /!\ Total: ", counter, " testing examples processed!"
+print " /!\ Total: ", counter, " testing examples processed! @: ", time
+
 
 # convert list of lists into array
 # documents as rows, unique words as columns (i.e., example as rows, features as columns)
-testing_features = np.array([overlap_title_test, temp_diff_test, comm_auth_test, comm_journ_test, comm_abstr_test, cos_sim_test]).astype(np.float64).T
+testing_features = np.array(
+    [overlap_title_test, temp_diff_test, comm_auth_test, comm_journ_test, comm_abstr_test, cos_sim_test,
+     com_neigh_test, pref_attach_test]).astype(
+    np.float64).T
 
 # scale our features
 testing_features_scaled = preprocessing.scale(testing_features)
 
 print "testing_features" + "          " + "testing_features_scaled"
 for i in range(5):
-    print testing_features[i], "         ",  testing_features_scaled[i]
+    print testing_features[i], "         ", testing_features_scaled[i]
 
 # issue predictions
 # For our classifier: - RandomForestClassifier -
@@ -465,3 +514,15 @@ with open("out-predictions/improved_predictions.csv", "r") as impr_pred_file:
     print "* READ:" + "improved_predictions.csv"
     for i in range(5):
         print "     ", csv_read.next()
+
+time = datetime.now().strftime('%H:%M:%S')
+print " /!\ Script Finished execution @: ", time, " /!\ "
+
+# print " "
+# time = datetime.now().strftime('%H:%M:%S')
+# print " /!\ Graph to SVG starting now @: ", time
+# cg.write_svg("out-predictions/citation_graph.svg", layout=g.layout_auto(), width=1200, height=1100, colors='blue',
+#             shapes=1, vertex_size=12, edge_colors='green', font_size=16)
+# time = datetime.now().strftime('%H:%M:%S')
+# print " "
+# print " /!\ Graph to SVG completed @: ", time

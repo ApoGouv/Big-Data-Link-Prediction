@@ -1,9 +1,9 @@
-# Submit #23
+# Submit #41
 
-## Scored: 0.86713,
+## Scored: 0.97115,
 
 ## Classifier used:
-    classifier = RF(n_jobs=1, n_estimators=200, max_features=5, max_depth=10, min_samples_leaf=100)
+    classifier = RF(n_jobs=1, n_estimators=500, criterion="entropy", max_features="log2", max_depth=10)
 
 ## Features used:
 - **# Calculate feature #1 - number of overlapping words in title**
@@ -18,3 +18,7 @@
     comm_abstr_test.append(len(set(source_abstr).intersection(set(target_abstr))))
 - **# Calculate feature #6 - cosine similarity**
     cos_sim_test.append(cosine_similarity(features_TFIDF[index_source], features_TFIDF[index_target]))
+- **# Calculate feature #7: common neighbours**
+    com_neigh.append(len(gAdjList[index_source].intersection(gAdjList[index_target])))
+- **# Calculate feature #8: preferential attachment**
+    pref_attach.append(int(degrees[index_source] * degrees[index_target]))
