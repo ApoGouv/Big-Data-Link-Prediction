@@ -4,6 +4,7 @@ import random
 from datetime import datetime
 
 import csv
+import re  # regular expressions
 
 # scientific computing package | http://www.numpy.org/
 import numpy as np
@@ -58,6 +59,7 @@ nltk.download('punkt')  # for tokenization
 nltk.download('stopwords')
 stpwds = set(nltk.corpus.stopwords.words("english"))
 stemmer = nltk.stem.PorterStemmer()
+stemmerRegXP = nltk.stem.RegexpStemmer(r'\([^)]*\)')  # removes text inside parenthesis & parenthesis
 
 with open("input/testing_set.txt", "r") as f:
     reader = csv.reader(f)
@@ -164,14 +166,28 @@ vectorizer = TfidfVectorizer(analyzer='word', ngram_range=(1, 3), min_df=0, stop
 
 # each row is a node in the order of node_info
 # fit_transform(): Learn vocabulary and idf, return term-document matrix.
-features_TFIDF = vectorizer.fit_transform(corpus)
+features_TFIDF_Abstract = vectorizer.fit_transform(corpus)
 # print type(features_TFIDF) | will print <class 'scipy.sparse.csr.csr_matrix'>
 # https://docs.scipy.org/doc/scipy-0.19.0/reference/generated/scipy.sparse.csr_matrix.html
+
+# compute TFIDF vector of each title
+corpusTitle = [element[2] for element in node_info]
+# each row is a node in the order of node_info
+features_TFIDF_Title = vectorizer.fit_transform(corpusTitle)
+
+# compute TFIDF vector of each author
+corpusAuthor = [element[3] for element in node_info]
+# each row is a node in the order of node_info
+features_TFIDF_Author = vectorizer.fit_transform(corpusAuthor)
+
+# compute TFIDF vector of each journal
+corpusJournal = [element[4] for element in node_info]
+# each row is a node in the order of node_info
+features_TFIDF_Journal = vectorizer.fit_transform(corpusJournal)
 
 # the following shows how to construct a graph with igraph
 # even though in this baseline we don't use it
 # look at http://igraph.org/python/doc/igraph.Graph-class.html for feature ideas
-
 edges = [(element[0], element[1]) for element in training_set if element[2] == "1"]
 
 # some nodes may not be connected to any other node
@@ -214,6 +230,18 @@ print "**** ", "['src_ID',  'trg_ID', 'edge']"
 for i in range(5):
     print "     ", training_set_reduced[i]
 
+# Graph for the reduced training set
+# g_training = igraph.Graph(directed=True)
+# IDs_training = [element[0] for element in training_set_reduced]
+# IDs_training.append([element[1] for element in training_set_reduced if element[0] != element[1]])
+# nodes_training = IDs_training
+# edges_training = [(element[0], element[1]) for element in training_set_reduced if element[2] == "1"]
+# g_training.add_vertices(nodes_training)  # add vertices
+# g_training.add_edges(edges_training)  # add edges
+
+# gAdjList_training = [set(x) for x in g_training.get_adjlist(mode="ALL")]  # adjacency list
+# degrees_training = g_training.degree()  # preferential attachment degrees array
+
 # we will use three basic features:
 # feature #1: number of overlapping words in title
 overlap_title = []
@@ -225,8 +253,14 @@ comm_auth = []
 comm_journ = []
 # feature #5: number of common abstract words
 comm_abstr = []
-# feature #6: cosine similarity
-cos_sim = []
+# feature #6a: cosine similarity
+cos_sim_abstract = []
+# feature #6b: cosine similarity author
+cos_sim_author = []
+# feature #6c:  cosine similarity title
+cos_sim_title = []
+# feature #6d:  cosine similarity journal
+cos_sim_journal = []
 # feature #7: common neighbours
 com_neigh = []
 # feature #8: preferential attachment
@@ -260,10 +294,12 @@ for i in xrange(len(training_set_reduced)):
     # 4/a: Manipulate source & target title
     source_title = source_info[2].lower().split(" ")  # convert to lowercase and tokenize
     source_title = [token for token in source_title if token not in stpwds]  # remove stopwords
+    source_title = [stemmerRegXP.stem(token) for token in source_title]  # perform stemming for parenthesis
     source_title = [stemmer.stem(token) for token in source_title]  # perform stemming
 
     target_title = target_info[2].lower().split(" ")  # convert to lowercase and tokenize
     target_title = [token for token in target_title if token not in stpwds]  # remove stopwords
+    target_title = [stemmerRegXP.stem(token) for token in target_title]  # perform stemming for parenthesis
     target_title = [stemmer.stem(token) for token in target_title]  # perform stemming
 
     # 4/b: Manipulate source & target abstract
@@ -276,8 +312,39 @@ for i in xrange(len(training_set_reduced)):
     target_abstr = [stemmer.stem(token) for token in target_abstr]  # perform stemming
 
     # 4: Manipulate source & target authors
-    source_auth = source_info[3].split(",")
-    target_auth = target_info[3].split(",")
+    source_auth = source_info[3]
+    source_auth = re.sub(r'\([^)]*\)', '', source_auth)  # remove parenthesis and content inside them
+    # if source_info[3].count("(") > 0:
+    #   print " "
+    #   print " *********************  "
+    #   print "Author list after regEx = ", source_auth
+    source_auth = source_auth.split(",")
+    # if source_info[3].count("(") > 0:
+    #   print " "
+    #   print "Author list after split = ", source_auth
+    source_auth = [stemmerRegXP.stem(token) for token in source_auth]  # perform stemming for parenthesis
+    # if source_info[3].count("(") > 0:
+    #    print " "
+    #    print "Author w/e parenthesis from stemmer= ", source_auth
+    source_auth[:] = [val for val in source_auth if not val == " " or val == ""]  # remove empty entries in our list
+    # for sa, val in enumerate(source_auth):
+    #    if val == " " or val == "":
+    #        del source_auth[sa]
+    # iterate through our author list end call strip() to remove starting and trailing spaces
+    for sa, val in enumerate(source_auth):
+        source_auth[sa] = source_auth[sa].strip()
+    # if source_info[3].count("(") > 0:
+    #    print " "
+    #    print "Author list sripped = ", source_auth
+    #    print " *********************  "
+
+    target_auth = target_info[3]
+    target_auth = re.sub(r'\([^)]*\)', '', target_auth)
+    target_auth = target_auth.split(",")
+    target_auth = [stemmerRegXP.stem(token) for token in target_auth]
+    target_auth[:] = [val for val in target_auth if not val == " " or val == ""]
+    for ta, val in enumerate(target_auth):
+        target_auth[ta] = target_auth[ta].strip()
 
     # 5: Manipulate source & target journal
     source_journal = source_info[4]
@@ -293,8 +360,16 @@ for i in xrange(len(training_set_reduced)):
     comm_journ.append(len(set(source_journal).intersection(set(target_journal))))
     # Calculate feature #5 - number of common abstract words
     comm_abstr.append(len(set(source_abstr).intersection(set(target_abstr))))
-    # Calculate feature #6 - cosine similarity
-    cos_sim.append(cosine_similarity(features_TFIDF[index_source], features_TFIDF[index_target]))
+    # Calculate feature #6a - abstract cosine similarity
+    cos_sim_abstract.append(
+        cosine_similarity(features_TFIDF_Abstract[index_source], features_TFIDF_Abstract[index_target]))
+    # Calculate feature #6b - title cosine similarity
+    cos_sim_title.append(cosine_similarity(features_TFIDF_Title[index_source], features_TFIDF_Title[index_target]))
+    # Calculate feature #6c - author cosine similarity
+    cos_sim_author.append(cosine_similarity(features_TFIDF_Author[index_source], features_TFIDF_Author[index_target]))
+    # Calculate feature #6d - journal cosine similarity
+    cos_sim_journal.append(
+        cosine_similarity(features_TFIDF_Journal[index_source], features_TFIDF_Journal[index_target]))
     # Calculate feature #7: common neighbours
     com_neigh.append(len(gAdjList[index_source].intersection(gAdjList[index_target])))
     # Calculate feature #8: preferential attachment
@@ -308,7 +383,7 @@ for i in xrange(len(training_set_reduced)):
     counter += 1
     if counter % 10000 == True:
         time = datetime.now().strftime('%H:%M:%S')
-        print counter, " training examples processed, @: " , time
+        print counter, " training examples processed, @: ", time
     if counter % 1000 == True:
         print ".",
 
@@ -319,8 +394,8 @@ print " /!\ Total: ", counter, " training examples processed! @: ", time
 # convert list of lists into array
 # documents as rows, unique words as columns (i.e., example as rows, features as columns)
 training_features = np.array(
-    [overlap_title, temp_diff, comm_auth, comm_journ, comm_abstr, cos_sim, com_neigh, pref_attach]).astype(
-    np.float64).T
+    [overlap_title, temp_diff, comm_auth, comm_journ, comm_abstr, cos_sim_abstract, cos_sim_author,
+     cos_sim_journal, cos_sim_title, com_neigh, pref_attach]).astype(np.float64).T
 
 # scale our features
 # Why apply scale?
@@ -329,9 +404,9 @@ training_features = np.array(
 #     we will obtain less accurate predictions. We can overcome this trouble using feature scaling.
 #
 training_features_scaled = preprocessing.scale(training_features)
-print "training_features" + "          " + "training_features_scaled"
-for i in range(5):
-    print training_features[i], "         ", training_features_scaled[i]
+# print "training_features" + "          " + "training_features_scaled"
+# for i in range(5):
+#     print training_features[i], "         ", training_features_scaled[i]
 
 # convert labels into integers then into column array
 # labels: are what I call previously "edge", which says if a link between 2 papers exist (1) or not (0)
@@ -380,7 +455,10 @@ temp_diff_test = []
 comm_auth_test = []
 comm_journ_test = []
 comm_abstr_test = []
-cos_sim_test = []
+cos_sim_abstract_test = []
+cos_sim_author_test = []
+cos_sim_journal_test = []
+cos_sim_title_test = []
 com_neigh_test = []
 pref_attach_test = []
 # shortest_path_test = []
@@ -414,10 +492,12 @@ for i in xrange(len(testing_set)):
     # 4/a: Manipulate source & target title
     source_title = source_info[2].lower().split(" ")  # convert to lowercase and tokenize
     source_title = [token for token in source_title if token not in stpwds]  # remove stopwords
+    source_title = [stemmerRegXP.stem(token) for token in source_title]  # perform stemming
     source_title = [stemmer.stem(token) for token in source_title]  # perform stemming
 
     target_title = target_info[2].lower().split(" ")  # convert to lowercase and tokenize
     target_title = [token for token in target_title if token not in stpwds]  # remove stopwords
+    target_title = [stemmerRegXP.stem(token) for token in target_title]  # perform stemming
     target_title = [stemmer.stem(token) for token in target_title]  # perform stemming
 
     # 4/a: Manipulate source & target abstract
@@ -430,8 +510,22 @@ for i in xrange(len(testing_set)):
     target_abstr = [stemmer.stem(token) for token in target_abstr]  # perform stemming
 
     # 4: Manipulate source & target authors
-    source_auth = source_info[3].split(",")
-    target_auth = target_info[3].split(",")
+
+    source_auth = target_info[3]
+    source_auth = re.sub(r'\([^)]*\)', '', source_auth)
+    source_auth = source_auth.split(",")
+    source_auth = [stemmerRegXP.stem(token) for token in source_auth]
+    source_auth[:] = [val for val in source_auth if not val == " " or val == ""]
+    for ta, val in enumerate(source_auth):
+        source_auth[ta] = source_auth[ta].strip()
+
+    target_auth = target_info[3]
+    target_auth = re.sub(r'\([^)]*\)', '', target_auth)
+    target_auth = target_auth.split(",")
+    target_auth = [stemmerRegXP.stem(token) for token in target_auth]
+    target_auth[:] = [val for val in target_auth if not val == " " or val == ""]
+    for ta, val in enumerate(target_auth):
+        target_auth[ta] = target_auth[ta].strip()
 
     # 5: Manipulate source & target journal
     source_journal = source_info[4]
@@ -447,8 +541,18 @@ for i in xrange(len(testing_set)):
     comm_journ_test.append(len(set(source_journal).intersection(set(target_journal))))
     # Calculate feature #5 - number of common abstract words
     comm_abstr_test.append(len(set(source_abstr).intersection(set(target_abstr))))
-    # Calculate feature #6 - cosine similarity
-    cos_sim_test.append(cosine_similarity(features_TFIDF[index_source], features_TFIDF[index_target]))
+    # Calculate feature #6a - abstract cosine similarity
+    cos_sim_abstract_test.append(
+        cosine_similarity(features_TFIDF_Abstract[index_source], features_TFIDF_Abstract[index_target]))
+    # Calculate feature #6b - title cosine similarity
+    cos_sim_title_test.append(cosine_similarity(features_TFIDF_Title[index_source], features_TFIDF_Title[index_target]))
+    # Calculate feature #6c - author cosine similarity
+    cos_sim_author_test.append(
+        cosine_similarity(features_TFIDF_Author[index_source], features_TFIDF_Author[index_target]))
+    # Calculate feature #6d - journal cosine similarity
+    cos_sim_journal_test.append(
+        cosine_similarity(features_TFIDF_Journal[index_source], features_TFIDF_Journal[index_target]))
+
     # Calculate feature #7: common neighbours
     com_neigh_test.append(len(gAdjList[index_source].intersection(gAdjList[index_target])))
     # Calculate feature #8: preferential attachment
@@ -460,7 +564,7 @@ for i in xrange(len(testing_set)):
     counter += 1
     if counter % 10000 == True:
         time = datetime.now().strftime('%H:%M:%S')
-        print counter, " testing examples processed, @: " , time
+        print counter, " testing examples processed, @: ", time
     if counter % 1000 == True:
         print ".",
 
@@ -468,20 +572,19 @@ time = datetime.now().strftime('%H:%M:%S')
 print " "
 print " /!\ Total: ", counter, " testing examples processed! @: ", time
 
-
 # convert list of lists into array
 # documents as rows, unique words as columns (i.e., example as rows, features as columns)
 testing_features = np.array(
-    [overlap_title_test, temp_diff_test, comm_auth_test, comm_journ_test, comm_abstr_test, cos_sim_test,
-     com_neigh_test, pref_attach_test]).astype(
+    [overlap_title_test, temp_diff_test, comm_auth_test, comm_journ_test, comm_abstr_test, cos_sim_abstract_test,
+     cos_sim_author_test, cos_sim_journal_test, cos_sim_title_test, com_neigh_test, pref_attach_test]).astype(
     np.float64).T
 
 # scale our features
 testing_features_scaled = preprocessing.scale(testing_features)
 
-print "testing_features" + "          " + "testing_features_scaled"
-for i in range(5):
-    print testing_features[i], "         ", testing_features_scaled[i]
+# print "testing_features" + "          " + "testing_features_scaled"
+# for i in range(5):
+#     print testing_features[i], "         ", testing_features_scaled[i]
 
 # issue predictions
 # For our classifier: - RandomForestClassifier -
