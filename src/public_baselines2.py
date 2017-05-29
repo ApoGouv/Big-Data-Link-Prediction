@@ -1,4 +1,5 @@
 import random
+import math
 
 # we will use this to get the time when we run the script, in order to have an indication of time lapse since run
 from datetime import datetime
@@ -54,6 +55,9 @@ from sklearn.gaussian_process.kernels import RBF
 # from sklearn.preprocessing import StandardScaler
 # from sklearn.datasets import make_moons, make_circles, make_classification
 # from sklearn.neural_network import MLPClassifier
+
+time = datetime.now().strftime('%H:%M:%S')
+print " /!\ Script Starting execution @: ", time, " /!\ "
 
 nltk.download('punkt')  # for tokenization
 nltk.download('stopwords')
@@ -265,6 +269,37 @@ cos_sim_journal = []
 com_neigh = []
 # feature #8: preferential attachment
 pref_attach = []
+# feature #9: Jaccard similarity coefficient
+jac_sim = []
+
+
+def jaccard_coefficent(u, v, g):
+    u_neighbors = set(g.neighbors(u))
+    v_neighbors = set(g.neighbors(v))
+    intersection = len(u_neighbors.intersection(v_neighbors))
+    union = len(u_neighbors.union(v_neighbors))
+    if union == 0:
+        return 0;
+    else:
+        return intersection / float(union)
+
+# feature #9: Adamic Adar similarity
+adam_adar = []
+
+
+def adamic_adar(u, v, g):
+    u_neighbors = set(g.neighbors(u))
+    v_neighbors = set(g.neighbors(v))
+    aa = 0
+    for i in u_neighbors.intersection(v_neighbors):
+        if math.log(len(g.neighbors(i))) == 0:
+            aa += 0
+        else:
+            aa += 1 / math.log(len(g.neighbors(i)))
+    return aa
+
+
+
 # feature #?: shortest distance
 # see paper: Link prediction using supervised learning @p.4 | 3.Topological Featutes: Shortest Distance
 # shortest_path = []
@@ -374,6 +409,10 @@ for i in xrange(len(training_set_reduced)):
     com_neigh.append(len(gAdjList[index_source].intersection(gAdjList[index_target])))
     # Calculate feature #8: preferential attachment
     pref_attach.append(int(degrees[index_source] * degrees[index_target]))
+    # Calculate feature #9: Jaccard similarity
+    # jac_sim.append(int(jaccard_coefficent(index_source, index_target, g)))
+    # Calculate feature #9: Adamic Adar similarity
+    adam_adar.append(int(adamic_adar(index_source, index_target, g)))
     # Calculate feature #? - shortest path
     # cg.get_shortest_paths(v=index_source, to=index_target, weights=None, mode=1, output= )
     # shortest_path.append(
@@ -395,7 +434,7 @@ print " /!\ Total: ", counter, " training examples processed! @: ", time
 # documents as rows, unique words as columns (i.e., example as rows, features as columns)
 training_features = np.array(
     [overlap_title, temp_diff, comm_auth, comm_journ, comm_abstr, cos_sim_abstract, cos_sim_author,
-     cos_sim_journal, cos_sim_title, com_neigh, pref_attach]).astype(np.float64).T
+     cos_sim_journal, cos_sim_title, com_neigh, pref_attach, adam_adar]).astype(np.float64).T
 
 # scale our features
 # Why apply scale?
@@ -461,6 +500,8 @@ cos_sim_journal_test = []
 cos_sim_title_test = []
 com_neigh_test = []
 pref_attach_test = []
+jac_sim_test = []
+adam_adar_test = []
 # shortest_path_test = []
 
 counter = 0
@@ -557,6 +598,10 @@ for i in xrange(len(testing_set)):
     com_neigh_test.append(len(gAdjList[index_source].intersection(gAdjList[index_target])))
     # Calculate feature #8: preferential attachment
     pref_attach_test.append(int(degrees[index_source] * degrees[index_target]))
+    # Calculate feature #9: Jaccard similarity
+    # jac_sim_test.append(int(jaccard_coefficent(index_source, index_target, g)))
+    # Calculate feature #10: Adamic Adar similarity
+    adam_adar_test.append(int(adamic_adar(index_source, index_target, g)))
     # Calculate feature #? - shortest path
     # shortest_path_test.append(
     #   len(g.shortest_paths_dijkstra(source=index_source, target=index_target, weights=None, mode=1)))
@@ -576,7 +621,8 @@ print " /!\ Total: ", counter, " testing examples processed! @: ", time
 # documents as rows, unique words as columns (i.e., example as rows, features as columns)
 testing_features = np.array(
     [overlap_title_test, temp_diff_test, comm_auth_test, comm_journ_test, comm_abstr_test, cos_sim_abstract_test,
-     cos_sim_author_test, cos_sim_journal_test, cos_sim_title_test, com_neigh_test, pref_attach_test]).astype(
+     cos_sim_author_test, cos_sim_journal_test, cos_sim_title_test, com_neigh_test, pref_attach_test,
+     adam_adar_test]).astype(
     np.float64).T
 
 # scale our features

@@ -1,6 +1,6 @@
 # Submit #45
 
-## Scored: 0.97115,
+## Scored: 0.97256,
 
 ## Classifier used:
     classifier = RF(n_jobs=1, n_estimators=500, criterion="entropy", max_features="log2", max_depth=10)
@@ -31,3 +31,5 @@
     com_neigh.append(len(gAdjList[index_source].intersection(gAdjList[index_target])))
 - **# Calculate feature #8: preferential attachment**
     pref_attach.append(int(degrees[index_source] * degrees[index_target]))
+- **# Calculate feature #9: Adamic Adar similarity**
+    adam_adar.append(int(adamic_adar(index_source, index_target, g)))
