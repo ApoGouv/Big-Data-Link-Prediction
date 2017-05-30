@@ -16,7 +16,7 @@ import nltk
 # iGraph is for making graphs
 import igraph
 # is used for graphics. maybe needed for showing the graph ??
-import cairo
+#import cairo
 
 # sklearn: Machine learning package | http://scikit-learn.org/ #
 
@@ -305,6 +305,10 @@ def adamic_adar(u, v, g):
 # shortest_path = []
 # feature #?: Calculates the Google PageRank values of a graph.
 # g.pagerank(g, vertices=None, directed=True, damping=0.85, weights=None, arpack_options=None, implementation='prpack', niter=1000, eps=0.001)
+page_rank = []
+page_rank = g.pagerank()
+page_rank_list_target= []
+page_rank_list_source= []
 
 counter = 0
 time = datetime.now().strftime('%H:%M:%S')
@@ -417,6 +421,9 @@ for i in xrange(len(training_set_reduced)):
     # cg.get_shortest_paths(v=index_source, to=index_target, weights=None, mode=1, output= )
     # shortest_path.append(
     #   len(g.shortest_paths_dijkstra(source=index_source, target=index_target, weights=None, mode=1)))
+    # Calculate feature #10,11: pagerank source, target
+    page_rank_list_target.append(page_rank[index_target])
+    page_rank_list_source.append(page_rank[index_source])
 
 
     counter += 1
@@ -434,7 +441,7 @@ print " /!\ Total: ", counter, " training examples processed! @: ", time
 # documents as rows, unique words as columns (i.e., example as rows, features as columns)
 training_features = np.array(
     [overlap_title, temp_diff, comm_auth, comm_journ, comm_abstr, cos_sim_abstract, cos_sim_author,
-     cos_sim_journal, cos_sim_title, com_neigh, pref_attach, adam_adar]).astype(np.float64).T
+     cos_sim_journal, cos_sim_title, com_neigh, pref_attach, adam_adar, page_rank_list_source, page_rank_list_target]).astype(np.float64).T
 
 # scale our features
 # Why apply scale?
@@ -503,6 +510,8 @@ pref_attach_test = []
 jac_sim_test = []
 adam_adar_test = []
 # shortest_path_test = []
+page_rank_list_source_test = []
+page_rank_list_target_test = []
 
 counter = 0
 # For each row in the testing_set calculate the 3 features
@@ -605,6 +614,9 @@ for i in xrange(len(testing_set)):
     # Calculate feature #? - shortest path
     # shortest_path_test.append(
     #   len(g.shortest_paths_dijkstra(source=index_source, target=index_target, weights=None, mode=1)))
+    # Calculate feature #10,11: pagerank source, target
+    page_rank_list_target_test.append(page_rank[index_target])
+    page_rank_list_source_test.append(page_rank[index_source])
 
     counter += 1
     if counter % 10000 == True:
@@ -622,7 +634,7 @@ print " /!\ Total: ", counter, " testing examples processed! @: ", time
 testing_features = np.array(
     [overlap_title_test, temp_diff_test, comm_auth_test, comm_journ_test, comm_abstr_test, cos_sim_abstract_test,
      cos_sim_author_test, cos_sim_journal_test, cos_sim_title_test, com_neigh_test, pref_attach_test,
-     adam_adar_test]).astype(
+     adam_adar_test, page_rank_list_source_test, page_rank_list_target_test]).astype(
     np.float64).T
 
 # scale our features
