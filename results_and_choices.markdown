@@ -1,7 +1,9 @@
-# Submit #45
+# Submit #59
 
-## Scored: 0.97256,
+## Scored: 0.97433,
 
+
+## Increased the training set sample to 80%
 ## Classifier used:
     classifier = RF(n_jobs=1, n_estimators=500, criterion="entropy", max_features="log2", max_depth=10)
 

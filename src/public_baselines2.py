@@ -222,9 +222,9 @@ degrees = g.degree()
 # for each training example we need to compute features
 # in this baseline we will train the model on only 5% of the training set
 
-# randomly select 5% of training set
-# gives and array of IDs
-to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set) * 0.05)))
+# randomly select 80% of training set
+# gives an array of IDs
+to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set) * 0.8)))
 
 # produce a sample training_set
 training_set_reduced = [training_set[i] for i in to_keep]
@@ -279,9 +279,9 @@ def jaccard_coefficent(u, v, g):
     intersection = len(u_neighbors.intersection(v_neighbors))
     union = len(u_neighbors.union(v_neighbors))
     if union == 0:
-        return 0;
+        return 0.0
     else:
-        return intersection / float(union)
+        return float(intersection / float(union))
 
 # feature #9: Adamic Adar similarity
 adam_adar = []
@@ -290,14 +290,13 @@ adam_adar = []
 def adamic_adar(u, v, g):
     u_neighbors = set(g.neighbors(u))
     v_neighbors = set(g.neighbors(v))
-    aa = 0
+    aa = 0.0
     for i in u_neighbors.intersection(v_neighbors):
         if math.log(len(g.neighbors(i))) == 0:
-            aa += 0
+            aa += 0.0
         else:
-            aa += 1 / math.log(len(g.neighbors(i)))
+            aa += float(1 / math.log(len(g.neighbors(i))))
     return aa
-
 
 
 # feature #?: shortest distance
@@ -307,8 +306,8 @@ def adamic_adar(u, v, g):
 # g.pagerank(g, vertices=None, directed=True, damping=0.85, weights=None, arpack_options=None, implementation='prpack', niter=1000, eps=0.001)
 page_rank = []
 page_rank = g.pagerank()
-page_rank_list_target= []
-page_rank_list_source= []
+page_rank_list_target = []
+page_rank_list_source = []
 
 counter = 0
 time = datetime.now().strftime('%H:%M:%S')
@@ -414,9 +413,9 @@ for i in xrange(len(training_set_reduced)):
     # Calculate feature #8: preferential attachment
     pref_attach.append(int(degrees[index_source] * degrees[index_target]))
     # Calculate feature #9: Jaccard similarity
-    # jac_sim.append(int(jaccard_coefficent(index_source, index_target, g)))
+    jac_sim.append(jaccard_coefficent(index_source, index_target, g))
     # Calculate feature #9: Adamic Adar similarity
-    adam_adar.append(int(adamic_adar(index_source, index_target, g)))
+    adam_adar.append(adamic_adar(index_source, index_target, g))
     # Calculate feature #? - shortest path
     # cg.get_shortest_paths(v=index_source, to=index_target, weights=None, mode=1, output= )
     # shortest_path.append(
@@ -441,7 +440,7 @@ print " /!\ Total: ", counter, " training examples processed! @: ", time
 # documents as rows, unique words as columns (i.e., example as rows, features as columns)
 training_features = np.array(
     [overlap_title, temp_diff, comm_auth, comm_journ, comm_abstr, cos_sim_abstract, cos_sim_author,
-     cos_sim_journal, cos_sim_title, com_neigh, pref_attach, adam_adar, page_rank_list_source, page_rank_list_target]).astype(np.float64).T
+     cos_sim_journal, cos_sim_title, com_neigh, pref_attach,jac_sim, adam_adar, page_rank_list_source, page_rank_list_target]).astype(np.float64).T
 
 # scale our features
 # Why apply scale?
@@ -608,9 +607,9 @@ for i in xrange(len(testing_set)):
     # Calculate feature #8: preferential attachment
     pref_attach_test.append(int(degrees[index_source] * degrees[index_target]))
     # Calculate feature #9: Jaccard similarity
-    # jac_sim_test.append(int(jaccard_coefficent(index_source, index_target, g)))
+    jac_sim_test.append(jaccard_coefficent(index_source, index_target, g))
     # Calculate feature #10: Adamic Adar similarity
-    adam_adar_test.append(int(adamic_adar(index_source, index_target, g)))
+    adam_adar_test.append(adamic_adar(index_source, index_target, g))
     # Calculate feature #? - shortest path
     # shortest_path_test.append(
     #   len(g.shortest_paths_dijkstra(source=index_source, target=index_target, weights=None, mode=1)))
@@ -634,7 +633,7 @@ print " /!\ Total: ", counter, " testing examples processed! @: ", time
 testing_features = np.array(
     [overlap_title_test, temp_diff_test, comm_auth_test, comm_journ_test, comm_abstr_test, cos_sim_abstract_test,
      cos_sim_author_test, cos_sim_journal_test, cos_sim_title_test, com_neigh_test, pref_attach_test,
-     adam_adar_test, page_rank_list_source_test, page_rank_list_target_test]).astype(
+     jac_sim_test, adam_adar_test, page_rank_list_source_test, page_rank_list_target_test]).astype(
     np.float64).T
 
 # scale our features
