@@ -1,5 +1,10 @@
-Improved_Predictions/**/*
+.idea/
 .idea/**/*
+Improved_Predictions/
+Improved_Predictions/**/*
+Python_Libraries_Win/
+Reading_Practice_Material/
+src/out-after-features/training_features_scaled.txt
 
 *~*.*
 *.tmp
@@ -21,3 +26,4 @@ pip-delete-this-directory.txt
 
 # pyenv
 .python-version
+

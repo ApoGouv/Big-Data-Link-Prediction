@@ -15,8 +15,12 @@ import nltk
 
 # iGraph is for making graphs
 import igraph
+import networkx as nx
+import community
+import matplotlib.pyplot as plt
 # is used for graphics. maybe needed for showing the graph ??
-#import cairo
+# import cairo
+
 
 # sklearn: Machine learning package | http://scikit-learn.org/ #
 
@@ -43,7 +47,7 @@ from sklearn import preprocessing
 # RandomForestClassifier: A random forest classifier.
 # http://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html
 from sklearn.ensemble import RandomForestClassifier as RF
-from sklearn.ensemble import AdaBoostClassifier as RF_Boost
+from sklearn.ensemble import AdaBoostClassifier as Ada_Boost
 from sklearn.neighbors import KNeighborsClassifier as KNN
 from sklearn.naive_bayes import GaussianNB as GNB
 from sklearn.gaussian_process import GaussianProcessClassifier as GPC
@@ -211,6 +215,44 @@ g.add_edges(edges)
 
 # print g
 
+visual_style = {}
+visual_style["edge_curved"] = False
+visual_style["vertex_color"] = "#AC0045"
+visual_style["vertex_size"] = 0
+visual_style["vertex_label_size"] = 12
+visual_style["bbox"] = (1066, 800)
+visual_style["margin"] = 10
+
+# time = datetime.now().strftime('%H:%M:%S')
+# print "*** Starting ploting whole graph... @:" + time
+# igraph.plot(g, "complete-graph.pdf", **visual_style)
+# time = datetime.now().strftime('%H:%M:%S')
+# print "*** Graph ploting ENDED ... @:" + time
+
+
+# make the graph with the networkX library
+gx = nx.Graph()  # this is undirected graph
+# gx = nx.DiGraph()  # this is directed graph
+gx.add_nodes_from(nodes)
+gx.add_edges_from(edges)
+# find communities
+time = datetime.now().strftime('%H:%M:%S')
+print "*** Starting community calculation... @:" + time
+clusters = community.best_partition(gx)
+time = datetime.now().strftime('%H:%M:%S')
+print "*** Community calculation ENDED ... @:" + time
+
+# time = datetime.now().strftime('%H:%M:%S')
+# print "*** Starting community ploting... @:" + time
+# nx.draw_spring(gx, cmap=plt.get_cmap('jet'), node_color='#A0CBE2',edge_color='#BB0000', node_size=25, with_labels=False)
+# plt.savefig("communities-graph.pdf")
+# time = datetime.now().strftime('%H:%M:%S')
+# print "*** Community ploting ENDED ... @:" + time
+
+# Find Communities with iGraph (had problem)
+# clusters = g.community_multilevel(return_levels=True)
+# igraph.plot(clusters, "communities-graph.png", mark_groups=True, **visual_style)
+
 # an adjacency list is a collection of unordered lists used to represent a finite graph.
 # Each list describes the set of neighbors of a vertex in the graph from wikipedia.
 # So we get the adjacency list of the graph and convert each item in the adjacency list to a set.
@@ -224,7 +266,7 @@ degrees = g.degree()
 
 # randomly select 80% of training set
 # gives an array of IDs
-to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set) * 0.8)))
+to_keep = random.sample(range(len(training_set)), k=int(round(len(training_set) * 0.05)))
 
 # produce a sample training_set
 training_set_reduced = [training_set[i] for i in to_keep]
@@ -273,25 +315,26 @@ pref_attach = []
 jac_sim = []
 
 
-def jaccard_coefficent(u, v, g):
-    u_neighbors = set(g.neighbors(u))
-    v_neighbors = set(g.neighbors(v))
-    intersection = len(u_neighbors.intersection(v_neighbors))
-    union = len(u_neighbors.union(v_neighbors))
+def jaccard_coefficent(s, d, g):
+    s_neighbors = set(g.neighbors(s))
+    d_neighbors = set(g.neighbors(d))
+    intersection = len(s_neighbors.intersection(d_neighbors))
+    union = len(s_neighbors.union(d_neighbors))
     if union == 0:
         return 0.0
     else:
         return float(intersection / float(union))
 
+
 # feature #9: Adamic Adar similarity
 adam_adar = []
 
 
-def adamic_adar(u, v, g):
-    u_neighbors = set(g.neighbors(u))
-    v_neighbors = set(g.neighbors(v))
+def adamic_adar(s, d, g):
+    s_neighbors = set(g.neighbors(s))
+    d_neighbors = set(g.neighbors(d))
     aa = 0.0
-    for i in u_neighbors.intersection(v_neighbors):
+    for i in s_neighbors.intersection(d_neighbors):
         if math.log(len(g.neighbors(i))) == 0:
             aa += 0.0
         else:
@@ -302,12 +345,31 @@ def adamic_adar(u, v, g):
 # feature #?: shortest distance
 # see paper: Link prediction using supervised learning @p.4 | 3.Topological Featutes: Shortest Distance
 # shortest_path = []
-# feature #?: Calculates the Google PageRank values of a graph.
+# feature #10: Calculates the Google PageRank values of a graph.
 # g.pagerank(g, vertices=None, directed=True, damping=0.85, weights=None, arpack_options=None, implementation='prpack', niter=1000, eps=0.001)
 page_rank = []
 page_rank = g.pagerank()
 page_rank_list_target = []
 page_rank_list_source = []
+
+# feature #11: check if in the same cluster
+# calculate dendrogram
+# dendrogram  = g.community_edge_betweenness(directed=True)
+# convert it into a flat clustering
+# clusters = dendrogram.as_clustering()
+# get the membership vector
+# membership = clusters.membership
+# partition = communities.best_partition(g)
+same_cluster = []
+
+
+def is_same_cluster(s, d, clusters):
+    # clusters is alist of VertexClustering (VC) objetcs
+    if clusters.get(s) == clusters.get(d):
+        return 1
+    else:
+        return 0
+
 
 counter = 0
 time = datetime.now().strftime('%H:%M:%S')
@@ -423,7 +485,7 @@ for i in xrange(len(training_set_reduced)):
     # Calculate feature #10,11: pagerank source, target
     page_rank_list_target.append(page_rank[index_target])
     page_rank_list_source.append(page_rank[index_source])
-
+    same_cluster.append(is_same_cluster(index_source, index_target, clusters))
 
     counter += 1
     if counter % 10000 == True:
@@ -440,7 +502,8 @@ print " /!\ Total: ", counter, " training examples processed! @: ", time
 # documents as rows, unique words as columns (i.e., example as rows, features as columns)
 training_features = np.array(
     [overlap_title, temp_diff, comm_auth, comm_journ, comm_abstr, cos_sim_abstract, cos_sim_author,
-     cos_sim_journal, cos_sim_title, com_neigh, pref_attach,jac_sim, adam_adar, page_rank_list_source, page_rank_list_target]).astype(np.float64).T
+     cos_sim_journal, cos_sim_title, com_neigh, pref_attach, jac_sim, adam_adar, page_rank_list_source,
+     page_rank_list_target, same_cluster]).astype(np.float64).T
 
 # scale our features
 # Why apply scale?
@@ -469,23 +532,6 @@ print "     ", labels_array
 # n_estimators = 500, compute_importances = True, oob_score = True
 classifier = RF(n_jobs=1, n_estimators=500, criterion="entropy", max_features="log2", max_depth=10)
 
-# TO-TEST #
-# RF_Boost
-# classifier = RF_Boost()
-# KNN
-# classifier = KNN(3)
-# GNB
-# classifier = GNB()
-# SVC
-# classifier = SVC(kernel="linear", C=0.025)
-# classifier = SVC(gamma=2, C=1)
-# RBF
-# classifier = RBF(1.0)
-# GPC
-# classifier = GPC(1.0 * RBF(1.0), warm_start=True)
-# ####### #
-
-
 # Train the classifier to take the training features and learn how they relate
 # to the training labels_array (the edges)
 classifier.fit(training_features_scaled, labels_array)
@@ -511,6 +557,7 @@ adam_adar_test = []
 # shortest_path_test = []
 page_rank_list_source_test = []
 page_rank_list_target_test = []
+same_cluster_test = []
 
 counter = 0
 # For each row in the testing_set calculate the 3 features
@@ -617,6 +664,8 @@ for i in xrange(len(testing_set)):
     page_rank_list_target_test.append(page_rank[index_target])
     page_rank_list_source_test.append(page_rank[index_source])
 
+    same_cluster_test.append(is_same_cluster(index_source, index_target, clusters))
+
     counter += 1
     if counter % 10000 == True:
         time = datetime.now().strftime('%H:%M:%S')
@@ -633,7 +682,7 @@ print " /!\ Total: ", counter, " testing examples processed! @: ", time
 testing_features = np.array(
     [overlap_title_test, temp_diff_test, comm_auth_test, comm_journ_test, comm_abstr_test, cos_sim_abstract_test,
      cos_sim_author_test, cos_sim_journal_test, cos_sim_title_test, com_neigh_test, pref_attach_test,
-     jac_sim_test, adam_adar_test, page_rank_list_source_test, page_rank_list_target_test]).astype(
+     jac_sim_test, adam_adar_test, page_rank_list_source_test, page_rank_list_target_test, same_cluster_test]).astype(
     np.float64).T
 
 # scale our features
@@ -648,6 +697,7 @@ testing_features_scaled = preprocessing.scale(testing_features)
 #   The predicted class of an input sample is a vote by the trees in the forest,
 #   weighted by their probability estimates. That is, the predicted class is the
 #   one with highest mean probability estimate across the trees.
+
 predictions_classifier = list(classifier.predict(testing_features_scaled))
 
 # zip: allows us to loop over multiple lists at the same time
