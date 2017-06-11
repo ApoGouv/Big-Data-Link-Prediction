@@ -499,6 +499,9 @@ training_features = np.array(
      cos_sim_journal, cos_sim_title, com_neigh, pref_attach, jac_sim, adam_adar, page_rank_list_source,
      page_rank_list_target]).astype(np.float64).T
 
+np.savetxt('out-after-features/training_features.txt', training_features)
+print "****  SAVED: training_features"
+
 # scale our features
 # Why apply scale?
 #     If we try to apply distance based methods (such as kNN) on our features,
