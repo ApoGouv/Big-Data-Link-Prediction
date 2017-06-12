@@ -28,7 +28,8 @@ print "****  LOADED: labels_array"
 testing_features_scaled = np.loadtxt('out-after-features/testing_features_scaled.txt', dtype=np.float64)
 print "****  LOADED: testing_features_scaled"
 
-classifier = RandomForestClassifier()
+classifier = RandomForestClassifier(n_jobs=1, n_estimators=700, criterion="gini", min_samples_split=10,
+                                    min_samples_leaf=2, max_features="sqrt", max_depth=10)
 
 # Train the classifier to take the training features and learn how they relate
 # to the training labels_array (the edges)
@@ -40,10 +41,18 @@ predictions_classifier = list(classifier.predict(testing_features_scaled))
 # zip: allows us to loop over multiple lists at the same time
 
 predictions_classifier = zip(range(len(testing_set)), predictions_classifier)
-
-feature_names = ['overlap_title', 'temp_diff', 'comm_auth', 'comm_journ', 'comm_abstr', 'cos_sim_abstract', 'cos_sim_author',
-     'cos_sim_journal', 'cos_sim_title', 'com_neigh', 'pref_attach', 'jac_sim', 'adam_adar', 'page_rank_list_source',
-     'page_rank_list_target']
+'''
+feature_names = ['overlap_title', 'temp_diff', 'comm_auth', 'comm_journ', 'comm_abstr', 'cos_sim_abstract',
+                 'cos_sim_author',
+                 'cos_sim_journal', 'cos_sim_title', 'com_neigh', 'pref_attach', 'jac_sim', 'adam_adar',
+                 'page_rank_list_source',
+                 'page_rank_list_target']
+'''
+feature_names = ['Overlapping words in titles', 'Temporal distance between papers', 'Number of common authors',
+                 'Overlapping words in journal', 'Overlapping words in abstract', 'Cosine similarity of abstract',
+                 'Cosine similarity of author', 'Cosine similarity of journal', 'Cosine similarity of title',
+                 'Common neighbours', 'Preferential attachment', 'Jaccard similarity', 'Adamic Adar similarity',
+                 'Pagerank from source', 'Pagerank from target']
 
 '''  Styles for the plot
 [u'seaborn-darkgrid',
@@ -70,54 +79,57 @@ feature_names = ['overlap_title', 'temp_diff', 'comm_auth', 'comm_journ', 'comm_
 '''
 my_dpi = 96
 plt.style.use('ggplot')
-plt.rcParams["figure.figsize"] = (1200/my_dpi, 800/my_dpi)
-plt.rcParams["figure.dpi"] = my_dpi
+plt.rcParams["figure.figsize"] = (11.69, 8.27)
 plot.feature_importances(classifier, feature_names=feature_names)
-plt.xlabel('Feature Names')
-plt.ylabel('Imporance Score')
-plt.title('Features Importance')
+# plt.xlabel('Feature Names')
+plt.ylabel('Feature Importance Score (%)')
+# plt.title('Features Importance')
 plt.gca().xaxis.set_minor_formatter(ticker.NullFormatter())
 plt.xticks(rotation=90)
-plt.savefig("out-stats-graphs/RF_Feature_Importance1.pdf", dpi=100)
-
+f = plt.gcf()
+f.subplots_adjust(bottom=0.4)
+plt.savefig("out-stats-graphs/RF_Feature_Importance1.pdf")
 
 plt.style.use('fivethirtyeight')
-plt.rcParams["figure.figsize"] = (1164/my_dpi, 1024/my_dpi)
+plt.rcParams["figure.figsize"] = (1164 / my_dpi, 1024 / my_dpi)
 plot.feature_importances(classifier, feature_names=feature_names)
+plt.ylabel('Feature Importance Score (%)')
 plt.xlabel('Feature Names')
-plt.ylabel('Imporance Score')
-plt.title('Features Importance')
 plt.gca().xaxis.set_minor_formatter(ticker.NullFormatter())
 plt.xticks(rotation=90)
-plt.savefig("out-stats-graphs/RF_Feature_Importance2.pdf", dpi=100)
-
+f = plt.gcf()
+f.subplots_adjust(bottom=0.4)
+plt.savefig("out-stats-graphs/RF_Feature_Importance2.pdf", bbox_inches='tight', dpi=100)
 
 plt.style.use('seaborn-deep')
+plt.rcParams["figure.figsize"] = (11.69, 8.27)
 plot.feature_importances(classifier, feature_names=feature_names)
+plt.ylabel('Feature Importance Score (%)')
 plt.xlabel('Feature Names')
-plt.ylabel('Imporance Score')
-plt.title('Features Importance')
 plt.gca().xaxis.set_minor_formatter(ticker.NullFormatter())
 plt.xticks(rotation=90)
+f = plt.gcf()
+f.subplots_adjust(bottom=0.4)
 plt.savefig("out-stats-graphs/RF_Feature_Importance3.pdf")
 
 plt.style.use('seaborn-dark-palette')
 plot.feature_importances(classifier, feature_names=feature_names)
-plt.xlabel('Feature Names')
-plt.ylabel('Imporance Score')
-plt.title('Features Importance')
+plt.ylabel('Feature Importance Score (%)')
 plt.gca().xaxis.set_minor_formatter(ticker.NullFormatter())
 plt.xticks(rotation=90)
+plt.rc('figure', figsize=(11.69, 8.27))
+f = plt.gcf()
+f.subplots_adjust(bottom=0.4)
 plt.savefig("out-stats-graphs/RF_Feature_Importance4.pdf")
 
 plt.style.use('seaborn-muted')
 plot.feature_importances(classifier, feature_names=feature_names)
-plt.xlabel('Feature Names')
-plt.ylabel('Imporance Score')
-plt.title('Features Importance')
+plt.ylabel('Feature Importance Score (%)')
 plt.gca().xaxis.set_minor_formatter(ticker.NullFormatter())
 plt.xticks(rotation=90)
-plt.savefig("out-stats-graphs/RF_Feature_Importance5.pdf")
+f = plt.gcf()
+f.subplots_adjust(bottom=0.4)
+plt.savefig("out-stats-graphs/RF_Feature_Importance5.pdf", bbox_inches='tight', dpi=100)
 
 time = datetime.now().strftime('%H:%M:%S')
 print " /!\ Script Finished execution @: ", time, " /!\ "
